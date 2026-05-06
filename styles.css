@@ -296,6 +296,11 @@ textarea:focus {
   font-weight: 800;
 }
 
+.primary-button.compact {
+  min-height: 40px;
+  padding: 0 16px;
+}
+
 .primary-button:hover {
   transform: translateY(-1px);
 }
@@ -346,6 +351,30 @@ textarea:focus {
 .forecast-result strong {
   font-size: 1.45rem;
   overflow-wrap: anywhere;
+}
+
+.sync-panel {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+.sync-panel p:last-child {
+  color: var(--muted);
+  font-size: 0.86rem;
+  margin-top: 4px;
+}
+
+.sync-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .list-section,
@@ -496,8 +525,14 @@ textarea:focus {
   }
 
   .top-actions,
-  .filters {
+  .filters,
+  .sync-actions {
     flex-wrap: wrap;
+  }
+
+  .sync-panel {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

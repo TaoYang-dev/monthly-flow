@@ -1,4 +1,4 @@
-const CACHE_NAME = "monthly-flow-v1";
+const CACHE_NAME = "monthly-flow-v2";
 const APP_ASSETS = [
   "./",
   "./index.html",

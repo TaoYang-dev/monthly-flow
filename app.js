@@ -1,5 +1,6 @@
 const STORAGE_KEY = "monthly-flow-items-v1";
 const BALANCE_KEY = "monthly-flow-balance-v1";
+const SYNC_ENDPOINT_KEY = "monthly-flow-sync-endpoint-v1";
 
 const categories = {
   income: ["Salary", "Freelance", "Investment", "Benefits", "Other income"],
@@ -30,6 +31,9 @@ const monthSelect = document.querySelector("#monthSelect");
 const balanceInput = document.querySelector("#balanceInput");
 const chart = document.querySelector("#categoryChart");
 const emptyChartText = document.querySelector("#emptyChartText");
+const syncButton = document.querySelector("#syncButton");
+const syncSettingsButton = document.querySelector("#syncSettingsButton");
+const syncStatus = document.querySelector("#syncStatus");
 const ctx = chart.getContext("2d");
 
 const currency = new Intl.NumberFormat("en-US", {
@@ -62,6 +66,20 @@ function createId() {
 
 function saveItems() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+}
+
+function getBackupPayload() {
+  return {
+    app: "Monthly Flow",
+    syncedAt: new Date().toISOString(),
+    balance: balanceInput.value || "0",
+    items
+  };
+}
+
+function updateSyncStatus(message) {
+  const endpoint = localStorage.getItem(SYNC_ENDPOINT_KEY);
+  syncStatus.textContent = message || (endpoint ? "Ready to sync" : "Not configured");
 }
 
 function getTotals() {
@@ -325,7 +343,7 @@ balanceInput.addEventListener("input", () => {
 monthSelect.addEventListener("change", renderForecast);
 
 document.querySelector("#exportButton").addEventListener("click", () => {
-  const blob = new Blob([JSON.stringify({ items, balance: balanceInput.value }, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify(getBackupPayload(), null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -362,9 +380,53 @@ document.querySelector("#resetButton").addEventListener("click", () => {
   renderAll();
 });
 
+syncSettingsButton.addEventListener("click", () => {
+  const current = localStorage.getItem(SYNC_ENDPOINT_KEY) || "";
+  const endpoint = prompt("Google Apps Script web app URL", current);
+  if (endpoint === null) return;
+
+  const trimmed = endpoint.trim();
+  if (trimmed) {
+    localStorage.setItem(SYNC_ENDPOINT_KEY, trimmed);
+  } else {
+    localStorage.removeItem(SYNC_ENDPOINT_KEY);
+  }
+
+  updateSyncStatus();
+});
+
+syncButton.addEventListener("click", async () => {
+  const endpoint = localStorage.getItem(SYNC_ENDPOINT_KEY);
+  if (!endpoint) {
+    updateSyncStatus("Add script URL first");
+    syncSettingsButton.click();
+    return;
+  }
+
+  syncButton.disabled = true;
+  updateSyncStatus("Syncing...");
+
+  try {
+    await fetch(endpoint, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify(getBackupPayload())
+    });
+    updateSyncStatus(`Sync sent ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`);
+  } catch {
+    updateSyncStatus("Sync failed");
+  } finally {
+    syncButton.disabled = false;
+  }
+});
+
 updateCategories();
 renderMonthOptions();
 renderAll();
+updateSyncStatus();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
