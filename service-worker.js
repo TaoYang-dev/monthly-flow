@@ -1,10 +1,10 @@
-const CACHE_NAME = "monthly-flow-v3";
+const CACHE_NAME = "monthly-flow-v4";
 const APP_ASSETS = [
   "./",
   "./index.html",
-  "./styles.css",
-  "./app.js",
-  "./manifest.webmanifest",
+  "./styles.css?v=4",
+  "./app.js?v=4",
+  "./manifest.webmanifest?v=4",
   "./icon.svg"
 ];
 
