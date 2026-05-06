@@ -12,6 +12,8 @@ This Apps Script receives backups from the Monthly Flow web app and writes them 
 6. Set **Execute as** to **Me**.
 7. Set **Who has access** to **Anyone**.
 8. Deploy and copy the web app URL.
-9. Open Monthly Flow, tap **Drive backup > Settings**, and paste the URL.
+9. Open Monthly Flow, tap **Drive backup > Settings**, and paste the URL on each device.
 
-The app sends data only when you tap **Sync**.
+The app sends data only when you tap **Push**. Tap **Load** on another device to replace that device's local entries with the latest Drive snapshot.
+
+If you already deployed the script, replace the deployed `Code.gs` with this updated file and create a new deployment version.

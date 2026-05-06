@@ -32,6 +32,7 @@ const balanceInput = document.querySelector("#balanceInput");
 const chart = document.querySelector("#categoryChart");
 const emptyChartText = document.querySelector("#emptyChartText");
 const syncButton = document.querySelector("#syncButton");
+const loadSyncButton = document.querySelector("#loadSyncButton");
 const syncSettingsButton = document.querySelector("#syncSettingsButton");
 const syncStatus = document.querySelector("#syncStatus");
 const ctx = chart.getContext("2d");
@@ -80,6 +81,47 @@ function getBackupPayload() {
 function updateSyncStatus(message) {
   const endpoint = localStorage.getItem(SYNC_ENDPOINT_KEY);
   syncStatus.textContent = message || (endpoint ? "Ready to sync" : "Not configured");
+}
+
+function loadBackupPayload(payload) {
+  if (!payload || !Array.isArray(payload.items)) throw new Error("Invalid backup payload");
+  items = payload.items;
+  balanceInput.value = payload.balance || "0";
+  saveItems();
+  localStorage.setItem(BALANCE_KEY, balanceInput.value);
+  resetForm();
+  renderAll();
+}
+
+function requestLatestBackup(endpoint) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `monthlyFlowSync${Date.now()}${Math.random().toString(16).slice(2)}`;
+    const separator = endpoint.includes("?") ? "&" : "?";
+    const script = document.createElement("script");
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Sync timed out"));
+    }, 12000);
+
+    function cleanup() {
+      window.clearTimeout(timeout);
+      script.remove();
+      delete window[callbackName];
+    }
+
+    window[callbackName] = (response) => {
+      cleanup();
+      response?.ok ? resolve(response.payload) : reject(new Error(response?.error || "Sync failed"));
+    };
+
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("Sync failed"));
+    };
+
+    script.src = `${endpoint}${separator}callback=${encodeURIComponent(callbackName)}`;
+    document.body.append(script);
+  });
 }
 
 function getTotals() {
@@ -358,13 +400,7 @@ document.querySelector("#importInput").addEventListener("change", async (event) 
 
   try {
     const data = JSON.parse(await file.text());
-    if (!Array.isArray(data.items)) throw new Error("Invalid backup file");
-    items = data.items;
-    balanceInput.value = data.balance || "0";
-    saveItems();
-    localStorage.setItem(BALANCE_KEY, balanceInput.value);
-    resetForm();
-    renderAll();
+    loadBackupPayload(data);
   } catch {
     alert("That backup could not be imported.");
   } finally {
@@ -395,6 +431,30 @@ syncSettingsButton.addEventListener("click", () => {
   updateSyncStatus();
 });
 
+loadSyncButton.addEventListener("click", async () => {
+  const endpoint = localStorage.getItem(SYNC_ENDPOINT_KEY);
+  if (!endpoint) {
+    updateSyncStatus("Add script URL first");
+    syncSettingsButton.click();
+    return;
+  }
+
+  if (!confirm("Load the latest Drive backup onto this device? This replaces the current local entries.")) return;
+
+  loadSyncButton.disabled = true;
+  updateSyncStatus("Loading...");
+
+  try {
+    const payload = await requestLatestBackup(endpoint);
+    loadBackupPayload(payload);
+    updateSyncStatus(`Loaded ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`);
+  } catch {
+    updateSyncStatus("Load failed");
+  } finally {
+    loadSyncButton.disabled = false;
+  }
+});
+
 syncButton.addEventListener("click", async () => {
   const endpoint = localStorage.getItem(SYNC_ENDPOINT_KEY);
   if (!endpoint) {
@@ -404,7 +464,7 @@ syncButton.addEventListener("click", async () => {
   }
 
   syncButton.disabled = true;
-  updateSyncStatus("Syncing...");
+  updateSyncStatus("Pushing...");
 
   try {
     await fetch(endpoint, {
@@ -415,9 +475,9 @@ syncButton.addEventListener("click", async () => {
       },
       body: JSON.stringify(getBackupPayload())
     });
-    updateSyncStatus(`Sync sent ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`);
+    updateSyncStatus(`Pushed ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`);
   } catch {
-    updateSyncStatus("Sync failed");
+    updateSyncStatus("Push failed");
   } finally {
     syncButton.disabled = false;
   }
