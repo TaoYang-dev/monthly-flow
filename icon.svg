@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Monthly Flow</title>
+  <rect width="512" height="512" rx="112" fill="#176f53"/>
+  <path fill="#fbfcf8" d="M136 143h240c20 0 36 16 36 36v154c0 20-16 36-36 36H136c-20 0-36-16-36-36V179c0-20 16-36 36-36Zm0 58v132h240V201H136Z"/>
+  <path fill="#2f6f99" d="M176 281c31 0 47-62 80-62s49 62 80 62c14 0 26-7 40-22v54c-13 10-27 16-43 16-33 0-49-62-80-62s-47 62-80 62c-14 0-26-5-37-14v-54c13 13 25 20 40 20Z"/>
+  <circle cx="174" cy="219" r="20" fill="#b47a18"/>
+</svg>

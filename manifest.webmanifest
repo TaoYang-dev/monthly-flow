@@ -1,0 +1,20 @@
+{
+  "name": "Monthly Flow",
+  "short_name": "Monthly Flow",
+  "description": "Track recurring monthly income, expenses, and cash flow.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#fbfcf8",
+  "theme_color": "#176f53",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

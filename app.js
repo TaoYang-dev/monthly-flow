@@ -365,3 +365,9 @@ document.querySelector("#resetButton").addEventListener("click", () => {
 updateCategories();
 renderMonthOptions();
 renderAll();
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("service-worker.js");
+  });
+}
