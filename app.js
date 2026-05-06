@@ -403,9 +403,8 @@ function renderMonthOptions() {
 
 function renderForecast() {
   const totals = getTotals();
-  const selectedIndex = monthSelect.selectedIndex >= 0 ? monthSelect.selectedIndex : 0;
   const startingBalance = Number(balanceInput.value) || 0;
-  const projected = startingBalance + (totals.income - totals.expense) * (selectedIndex + 1);
+  const projected = startingBalance + totals.income - totals.expense;
   document.querySelector("#projectedBalance").textContent = exactCurrency.format(projected);
 }
 
