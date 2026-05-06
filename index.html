@@ -6,9 +6,9 @@
     <meta name="theme-color" content="#176f53">
     <meta name="description" content="Track recurring monthly income, expenses, and cash flow.">
     <title>Monthly Flow</title>
-    <link rel="manifest" href="manifest.webmanifest?v=5">
+    <link rel="manifest" href="manifest.webmanifest?v=6">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="styles.css?v=5">
+    <link rel="stylesheet" href="styles.css?v=6">
   </head>
   <body>
     <header class="topbar">
@@ -32,19 +32,47 @@
       <section class="summary-band" aria-label="Monthly summary">
         <div class="summary-item">
           <span>Income</span>
-          <strong id="incomeTotal">$0</strong>
+          <div class="summary-values">
+            <strong id="incomeActual">$0</strong>
+            <strong id="incomeTotal">$0</strong>
+          </div>
+          <div class="summary-labels">
+            <small>Checked</small>
+            <small>Month end</small>
+          </div>
         </div>
         <div class="summary-item">
           <span>Expenses</span>
-          <strong id="expenseTotal">$0</strong>
+          <div class="summary-values">
+            <strong id="expenseActual">$0</strong>
+            <strong id="expenseTotal">$0</strong>
+          </div>
+          <div class="summary-labels">
+            <small>Checked</small>
+            <small>Month end</small>
+          </div>
         </div>
         <div class="summary-item net">
           <span>Net cash flow</span>
-          <strong id="netTotal">$0</strong>
+          <div class="summary-values">
+            <strong id="netActual">$0</strong>
+            <strong id="netTotal">$0</strong>
+          </div>
+          <div class="summary-labels">
+            <small>Checked</small>
+            <small>Month end</small>
+          </div>
         </div>
         <div class="summary-item">
           <span>Savings rate</span>
-          <strong id="savingsRate">0%</strong>
+          <div class="summary-values">
+            <strong id="savingsRateActual">0%</strong>
+            <strong id="savingsRate">0%</strong>
+          </div>
+          <div class="summary-labels">
+            <small>Checked</small>
+            <small>Month end</small>
+          </div>
         </div>
       </section>
 
@@ -193,6 +221,6 @@
       </article>
     </template>
 
-    <script src="app.js?v=5"></script>
+    <script src="app.js?v=6"></script>
   </body>
 </html>

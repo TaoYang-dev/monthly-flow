@@ -2,6 +2,7 @@ const STORAGE_KEY = "monthly-flow-items-v1";
 const BALANCE_KEY = "monthly-flow-balance-v1";
 const SYNC_ENDPOINT_KEY = "monthly-flow-sync-endpoint-v1";
 const COMPLETIONS_KEY = "monthly-flow-completions-v1";
+const MONTH_ITEMS_KEY = "monthly-flow-month-items-v1";
 
 const categories = {
   income: ["Salary", "Freelance", "Investment", "Benefits", "Other income"],
@@ -15,7 +16,8 @@ const sampleItems = [
   { id: createId(), type: "expense", name: "Gym", amount: 45, day: 18, category: "Subscriptions", account: "Credit card", notes: "" }
 ];
 
-let items = loadItems();
+let monthItems = loadMonthItems();
+let items = ensureMonthItems(getMonthKeyFromDate(new Date()));
 let completions = loadCompletions();
 let editingId = null;
 let activeFilter = "all";
@@ -74,12 +76,55 @@ function loadCompletions() {
   }
 }
 
+function loadMonthItems() {
+  const saved = localStorage.getItem(MONTH_ITEMS_KEY);
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+    } catch {
+      // Fall back to legacy migration below.
+    }
+  }
+
+  return {
+    [getMonthKeyFromDate(new Date())]: cloneItems(loadItems())
+  };
+}
+
+function cloneItems(sourceItems) {
+  return JSON.parse(JSON.stringify(sourceItems));
+}
+
+function getMonthKeyFromDate(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function saveMonthItems() {
+  monthItems[getSelectedMonthKey()] = cloneItems(items);
+  localStorage.setItem(MONTH_ITEMS_KEY, JSON.stringify(monthItems));
+}
+
+function ensureMonthItems(monthKey) {
+  if (!monthItems[monthKey]) {
+    const sourceKey = Object.keys(monthItems)
+      .filter((key) => key < monthKey)
+      .sort()
+      .pop();
+    monthItems[monthKey] = cloneItems(sourceKey ? monthItems[sourceKey] : loadItems());
+    localStorage.setItem(MONTH_ITEMS_KEY, JSON.stringify(monthItems));
+  }
+
+  return cloneItems(monthItems[monthKey]);
+}
+
 function createId() {
   if (window.crypto?.randomUUID) return window.crypto.randomUUID();
   return `item-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function saveItems() {
+  saveMonthItems();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
 }
 
@@ -93,6 +138,7 @@ function getBackupPayload() {
     syncedAt: new Date().toISOString(),
     balance: balanceInput.value || "0",
     items,
+    monthItems,
     completions
   };
 }
@@ -104,7 +150,10 @@ function updateSyncStatus(message) {
 
 function loadBackupPayload(payload) {
   if (!payload || !Array.isArray(payload.items)) throw new Error("Invalid backup payload");
-  items = payload.items;
+  monthItems = payload.monthItems && typeof payload.monthItems === "object"
+    ? payload.monthItems
+    : { [getSelectedMonthKey()]: payload.items };
+  items = ensureMonthItems(getSelectedMonthKey());
   completions = payload.completions && typeof payload.completions === "object" ? payload.completions : {};
   balanceInput.value = payload.balance || "0";
   saveItems();
@@ -116,7 +165,7 @@ function loadBackupPayload(payload) {
 
 function getSelectedMonthKey() {
   const date = monthSelect.value ? new Date(monthSelect.value) : new Date();
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  return getMonthKeyFromDate(date);
 }
 
 function isItemComplete(itemId) {
@@ -135,6 +184,7 @@ function setItemComplete(itemId, complete) {
 
   if (!Object.keys(completions[monthKey]).length) delete completions[monthKey];
   saveCompletions();
+  renderSummary();
   renderItems();
   renderTimeline();
 }
@@ -180,6 +230,16 @@ function getTotals() {
   );
 }
 
+function getTotalsFor(sourceItems) {
+  return sourceItems.reduce(
+    (totals, item) => {
+      totals[item.type] += Number(item.amount) || 0;
+      return totals;
+    },
+    { income: 0, expense: 0 }
+  );
+}
+
 function updateCategories(type = getSelectedType()) {
   categoryInput.innerHTML = "";
   categories[type].forEach((category) => {
@@ -195,17 +255,27 @@ function getSelectedType() {
 }
 
 function renderSummary() {
-  const totals = getTotals();
-  const net = totals.income - totals.expense;
-  const savingsRate = totals.income > 0 ? Math.round((net / totals.income) * 100) : 0;
-  const netEl = document.querySelector("#netTotal");
+  const monthEndTotals = getTotalsFor(items);
+  const checkedTotals = getTotalsFor(items.filter((item) => isItemComplete(item.id)));
+  const monthEndNet = monthEndTotals.income - monthEndTotals.expense;
+  const checkedNet = checkedTotals.income - checkedTotals.expense;
+  const monthEndSavingsRate = monthEndTotals.income > 0 ? Math.round((monthEndNet / monthEndTotals.income) * 100) : 0;
+  const checkedSavingsRate = checkedTotals.income > 0 ? Math.round((checkedNet / checkedTotals.income) * 100) : 0;
+  const netActualEl = document.querySelector("#netActual");
+  const netTotalEl = document.querySelector("#netTotal");
 
-  document.querySelector("#incomeTotal").textContent = currency.format(totals.income);
-  document.querySelector("#expenseTotal").textContent = currency.format(totals.expense);
-  netEl.textContent = currency.format(net);
-  netEl.classList.toggle("positive", net >= 0);
-  netEl.classList.toggle("negative", net < 0);
-  document.querySelector("#savingsRate").textContent = `${savingsRate}%`;
+  document.querySelector("#incomeActual").textContent = currency.format(checkedTotals.income);
+  document.querySelector("#incomeTotal").textContent = currency.format(monthEndTotals.income);
+  document.querySelector("#expenseActual").textContent = currency.format(checkedTotals.expense);
+  document.querySelector("#expenseTotal").textContent = currency.format(monthEndTotals.expense);
+  netActualEl.textContent = currency.format(checkedNet);
+  netTotalEl.textContent = currency.format(monthEndNet);
+  netActualEl.classList.toggle("positive", checkedNet >= 0);
+  netActualEl.classList.toggle("negative", checkedNet < 0);
+  netTotalEl.classList.toggle("positive", monthEndNet >= 0);
+  netTotalEl.classList.toggle("negative", monthEndNet < 0);
+  document.querySelector("#savingsRateActual").textContent = `${checkedSavingsRate}%`;
+  document.querySelector("#savingsRate").textContent = `${monthEndSavingsRate}%`;
 }
 
 function renderItems() {
@@ -318,13 +388,15 @@ function renderChart() {
 
 function renderMonthOptions() {
   const now = new Date();
+  const currentMonth = getMonthKeyFromDate(new Date(now.getFullYear(), now.getMonth(), 1));
   monthSelect.innerHTML = "";
 
-  for (let index = 0; index < 12; index += 1) {
+  for (let index = -11; index <= 12; index += 1) {
     const date = new Date(now.getFullYear(), now.getMonth() + index, 1);
     const option = document.createElement("option");
     option.value = date.toISOString();
     option.textContent = date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    option.selected = getMonthKeyFromDate(date) === currentMonth;
     monthSelect.append(option);
   }
 }
@@ -366,11 +438,12 @@ function editItem(id) {
 }
 
 function deleteItem(id) {
+  const monthKey = getSelectedMonthKey();
   items = items.filter((item) => item.id !== id);
-  Object.keys(completions).forEach((monthKey) => {
+  if (completions[monthKey]) {
     delete completions[monthKey][id];
     if (!Object.keys(completions[monthKey]).length) delete completions[monthKey];
-  });
+  }
   saveItems();
   saveCompletions();
   if (editingId === id) resetForm();
@@ -444,9 +517,9 @@ balanceInput.addEventListener("input", () => {
 });
 
 monthSelect.addEventListener("change", () => {
-  renderForecast();
-  renderItems();
-  renderTimeline();
+  items = ensureMonthItems(getSelectedMonthKey());
+  resetForm();
+  renderAll();
 });
 
 document.querySelector("#exportButton").addEventListener("click", () => {
@@ -474,9 +547,11 @@ document.querySelector("#importInput").addEventListener("change", async (event) 
 });
 
 document.querySelector("#resetButton").addEventListener("click", () => {
-  if (!confirm("Reset all recurring items?")) return;
+  const monthName = monthSelect.options[monthSelect.selectedIndex]?.textContent || "this month";
+  if (!confirm(`Reset all recurring items for ${monthName}? Previous months will stay saved.`)) return;
+  const monthKey = getSelectedMonthKey();
   items = [];
-  completions = {};
+  delete completions[monthKey];
   saveItems();
   saveCompletions();
   resetForm();

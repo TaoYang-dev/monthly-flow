@@ -174,9 +174,29 @@ h3 {
 }
 
 .summary-item strong {
-  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  font-size: clamp(1.2rem, 2.4vw, 1.9rem);
   line-height: 1;
   overflow-wrap: anywhere;
+}
+
+.summary-values {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: end;
+}
+
+.summary-labels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.summary-labels small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 .summary-item.net strong.positive {
