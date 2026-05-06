@@ -1,6 +1,7 @@
 const STORAGE_KEY = "monthly-flow-items-v1";
 const BALANCE_KEY = "monthly-flow-balance-v1";
 const SYNC_ENDPOINT_KEY = "monthly-flow-sync-endpoint-v1";
+const COMPLETIONS_KEY = "monthly-flow-completions-v1";
 
 const categories = {
   income: ["Salary", "Freelance", "Investment", "Benefits", "Other income"],
@@ -15,6 +16,7 @@ const sampleItems = [
 ];
 
 let items = loadItems();
+let completions = loadCompletions();
 let editingId = null;
 let activeFilter = "all";
 
@@ -60,6 +62,18 @@ function loadItems() {
   }
 }
 
+function loadCompletions() {
+  const saved = localStorage.getItem(COMPLETIONS_KEY);
+  if (!saved) return {};
+
+  try {
+    const parsed = JSON.parse(saved);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 function createId() {
   if (window.crypto?.randomUUID) return window.crypto.randomUUID();
   return `item-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -69,12 +83,17 @@ function saveItems() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
 }
 
+function saveCompletions() {
+  localStorage.setItem(COMPLETIONS_KEY, JSON.stringify(completions));
+}
+
 function getBackupPayload() {
   return {
     app: "Monthly Flow",
     syncedAt: new Date().toISOString(),
     balance: balanceInput.value || "0",
-    items
+    items,
+    completions
   };
 }
 
@@ -86,11 +105,38 @@ function updateSyncStatus(message) {
 function loadBackupPayload(payload) {
   if (!payload || !Array.isArray(payload.items)) throw new Error("Invalid backup payload");
   items = payload.items;
+  completions = payload.completions && typeof payload.completions === "object" ? payload.completions : {};
   balanceInput.value = payload.balance || "0";
   saveItems();
+  saveCompletions();
   localStorage.setItem(BALANCE_KEY, balanceInput.value);
   resetForm();
   renderAll();
+}
+
+function getSelectedMonthKey() {
+  const date = monthSelect.value ? new Date(monthSelect.value) : new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function isItemComplete(itemId) {
+  return Boolean(completions[getSelectedMonthKey()]?.[itemId]);
+}
+
+function setItemComplete(itemId, complete) {
+  const monthKey = getSelectedMonthKey();
+  completions[monthKey] = completions[monthKey] || {};
+
+  if (complete) {
+    completions[monthKey][itemId] = true;
+  } else {
+    delete completions[monthKey][itemId];
+  }
+
+  if (!Object.keys(completions[monthKey]).length) delete completions[monthKey];
+  saveCompletions();
+  renderItems();
+  renderTimeline();
 }
 
 function requestLatestBackup(endpoint) {
@@ -172,7 +218,12 @@ function renderItems() {
 
   filtered.forEach((item) => {
     const node = template.content.firstElementChild.cloneNode(true);
+    const complete = isItemComplete(item.id);
     node.classList.add(item.type);
+    node.classList.toggle("complete", complete);
+    node.querySelector(".item-check").checked = complete;
+    node.querySelector(".item-check").setAttribute("aria-label", `Mark ${item.name} as happened`);
+    node.querySelector(".item-check").addEventListener("change", (event) => setItemComplete(item.id, event.target.checked));
     node.querySelector(".date-day").textContent = item.day;
     node.querySelector(".item-name").textContent = item.name;
     node.querySelector(".item-meta").textContent = `${item.category}${item.account ? ` • ${item.account}` : ""}`;
@@ -198,11 +249,16 @@ function renderTimeline() {
 
   sorted.forEach((item) => {
     const entry = document.createElement("article");
-    entry.className = `timeline-entry ${item.type}`;
+    const complete = isItemComplete(item.id);
+    entry.className = `timeline-entry ${item.type}${complete ? " complete" : ""}`;
     entry.innerHTML = `
-      <span>Day ${item.day} • ${item.category}</span>
-      <strong>${escapeHtml(item.name)} · ${item.type === "income" ? "+" : "-"}${exactCurrency.format(item.amount)}</strong>
+      <input class="item-check" type="checkbox" aria-label="Mark ${escapeHtml(item.name)} as happened" ${complete ? "checked" : ""}>
+      <div class="timeline-main">
+        <span>Day ${item.day} • ${item.category}</span>
+        <strong>${escapeHtml(item.name)} · ${item.type === "income" ? "+" : "-"}${exactCurrency.format(item.amount)}</strong>
+      </div>
     `;
+    entry.querySelector(".item-check").addEventListener("change", (event) => setItemComplete(item.id, event.target.checked));
     timeline.append(entry);
   });
 }
@@ -311,7 +367,12 @@ function editItem(id) {
 
 function deleteItem(id) {
   items = items.filter((item) => item.id !== id);
+  Object.keys(completions).forEach((monthKey) => {
+    delete completions[monthKey][id];
+    if (!Object.keys(completions[monthKey]).length) delete completions[monthKey];
+  });
   saveItems();
+  saveCompletions();
   if (editingId === id) resetForm();
   renderAll();
 }
@@ -382,7 +443,11 @@ balanceInput.addEventListener("input", () => {
   renderForecast();
 });
 
-monthSelect.addEventListener("change", renderForecast);
+monthSelect.addEventListener("change", () => {
+  renderForecast();
+  renderItems();
+  renderTimeline();
+});
 
 document.querySelector("#exportButton").addEventListener("click", () => {
   const blob = new Blob([JSON.stringify(getBackupPayload(), null, 2)], { type: "application/json" });
@@ -411,7 +476,9 @@ document.querySelector("#importInput").addEventListener("change", async (event) 
 document.querySelector("#resetButton").addEventListener("click", () => {
   if (!confirm("Reset all recurring items?")) return;
   items = [];
+  completions = {};
   saveItems();
+  saveCompletions();
   resetForm();
   renderAll();
 });

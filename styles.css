@@ -390,18 +390,40 @@ textarea:focus {
 
 .item-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 12px;
+  grid-template-columns: 1fr;
+  gap: 8px;
 }
 
 .item-card {
   display: grid;
-  grid-template-columns: 58px 1fr;
-  gap: 14px;
+  grid-template-columns: 28px 58px 1fr;
+  gap: 12px;
+  align-items: start;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
-  padding: 14px;
+  padding: 12px;
+}
+
+.item-check {
+  align-self: center;
+  justify-self: center;
+  width: 20px;
+  height: 20px;
+  accent-color: var(--income);
+  cursor: pointer;
+}
+
+.item-card.complete,
+.timeline-entry.complete {
+  background: rgba(228, 244, 236, 0.72);
+}
+
+.item-card.complete .item-name,
+.timeline-entry.complete strong {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  color: var(--muted);
 }
 
 .date-box {
@@ -478,11 +500,15 @@ textarea:focus {
 
 .timeline {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 10px;
+  grid-template-columns: 1fr;
+  gap: 8px;
 }
 
 .timeline-entry {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 12px;
+  align-items: center;
   border-left: 4px solid var(--accent);
   border-radius: 8px;
   background: #fff;
@@ -496,6 +522,10 @@ textarea:focus {
 
 .timeline-entry.expense {
   border-left-color: var(--expense);
+}
+
+.timeline-main {
+  min-width: 0;
 }
 
 .timeline-entry span {
@@ -545,6 +575,18 @@ textarea:focus {
   .field-grid,
   .item-card {
     grid-template-columns: 1fr;
+  }
+
+  .item-card {
+    grid-template-columns: 28px 1fr;
+  }
+
+  .item-card .date-box {
+    grid-column: 2;
+  }
+
+  .item-card .item-main {
+    grid-column: 1 / -1;
   }
 
   .date-box {
