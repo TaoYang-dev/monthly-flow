@@ -6,9 +6,9 @@
     <meta name="theme-color" content="#176f53">
     <meta name="description" content="Track recurring monthly income, expenses, and cash flow.">
     <title>Monthly Flow</title>
-    <link rel="manifest" href="manifest.webmanifest?v=7">
+    <link rel="manifest" href="manifest.webmanifest?v=8">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="styles.css?v=7">
+    <link rel="stylesheet" href="styles.css?v=8">
   </head>
   <body>
     <header class="topbar">
@@ -80,10 +80,19 @@
         <form class="entry-panel" id="itemForm" autocomplete="off">
           <div class="panel-heading">
             <div>
-              <p class="eyebrow">New recurring item</p>
+              <p class="eyebrow">New logging</p>
               <h2 id="formTitle">Add income or expense</h2>
             </div>
             <button class="text-button ghost" id="cancelEditButton" type="button" hidden>Cancel</button>
+          </div>
+
+          <div class="segmented three-way" role="group" aria-label="Logging kind">
+            <input id="kindRecurring" name="kind" type="radio" value="recurring" checked>
+            <label for="kindRecurring">Recurring item</label>
+            <input id="kindVariable" name="kind" type="radio" value="variable">
+            <label for="kindVariable">Recurring variable</label>
+            <input id="kindOneTime" name="kind" type="radio" value="one-time">
+            <label for="kindOneTime">One time</label>
           </div>
 
           <div class="segmented" role="group" aria-label="Item type">
@@ -184,12 +193,12 @@
         <p class="empty-state" id="emptyListText">No recurring items yet. Add your first one above.</p>
       </section>
 
-      <section class="timeline-section" aria-label="Cash flow timeline">
+      <section class="grouped-section" aria-label="Monthly logging groups">
         <div>
-          <p class="eyebrow">Due-date view</p>
-          <h2>Month timeline</h2>
+          <p class="eyebrow">Monthly groups</p>
+          <h2>Loggings by type</h2>
         </div>
-        <div class="timeline" id="timeline"></div>
+        <div class="grouped-lists" id="groupedLists"></div>
       </section>
     </main>
 
@@ -221,6 +230,6 @@
       </article>
     </template>
 
-    <script src="app.js?v=7"></script>
+    <script src="app.js?v=8"></script>
   </body>
 </html>

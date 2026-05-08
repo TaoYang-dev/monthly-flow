@@ -29,7 +29,7 @@ const cancelEditButton = document.querySelector("#cancelEditButton");
 const categoryInput = document.querySelector("#categoryInput");
 const itemList = document.querySelector("#itemList");
 const emptyListText = document.querySelector("#emptyListText");
-const timeline = document.querySelector("#timeline");
+const groupedLists = document.querySelector("#groupedLists");
 const template = document.querySelector("#itemTemplate");
 const monthSelect = document.querySelector("#monthSelect");
 const balanceInput = document.querySelector("#balanceInput");
@@ -96,6 +96,17 @@ function cloneItems(sourceItems) {
   return JSON.parse(JSON.stringify(sourceItems));
 }
 
+function normalizeItem(item) {
+  return {
+    ...item,
+    kind: item.kind || "recurring"
+  };
+}
+
+function normalizeItems(sourceItems) {
+  return cloneItems(sourceItems).map(normalizeItem);
+}
+
 function getMonthKeyFromDate(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
@@ -111,11 +122,13 @@ function ensureMonthItems(monthKey) {
       .filter((key) => key < monthKey)
       .sort()
       .pop();
-    monthItems[monthKey] = cloneItems(sourceKey ? monthItems[sourceKey] : loadItems());
+    const sourceItems = sourceKey ? monthItems[sourceKey] : loadItems();
+    monthItems[monthKey] = normalizeItems(sourceItems)
+      .filter((item) => item.kind !== "one-time");
     localStorage.setItem(MONTH_ITEMS_KEY, JSON.stringify(monthItems));
   }
 
-  return cloneItems(monthItems[monthKey]);
+  return normalizeItems(monthItems[monthKey]);
 }
 
 function createId() {
@@ -153,6 +166,9 @@ function loadBackupPayload(payload) {
   monthItems = payload.monthItems && typeof payload.monthItems === "object"
     ? payload.monthItems
     : { [getSelectedMonthKey()]: payload.items };
+  Object.keys(monthItems).forEach((monthKey) => {
+    monthItems[monthKey] = normalizeItems(monthItems[monthKey]);
+  });
   items = ensureMonthItems(getSelectedMonthKey());
   completions = payload.completions && typeof payload.completions === "object" ? payload.completions : {};
   balanceInput.value = payload.balance || "0";
@@ -186,7 +202,7 @@ function setItemComplete(itemId, complete) {
   saveCompletions();
   renderSummary();
   renderItems();
-  renderTimeline();
+  renderGroups();
 }
 
 function requestLatestBackup(endpoint) {
@@ -287,49 +303,65 @@ function renderItems() {
   emptyListText.hidden = filtered.length > 0;
 
   filtered.forEach((item) => {
-    const node = template.content.firstElementChild.cloneNode(true);
-    const complete = isItemComplete(item.id);
-    node.classList.add(item.type);
-    node.classList.toggle("complete", complete);
-    node.querySelector(".item-check").checked = complete;
-    node.querySelector(".item-check").setAttribute("aria-label", `Mark ${item.name} as happened`);
-    node.querySelector(".item-check").addEventListener("change", (event) => setItemComplete(item.id, event.target.checked));
-    node.querySelector(".date-day").textContent = item.day;
-    node.querySelector(".item-name").textContent = item.name;
-    node.querySelector(".item-meta").textContent = `${item.category}${item.account ? ` • ${item.account}` : ""}`;
-    node.querySelector(".item-amount").textContent = `${item.type === "income" ? "+" : "-"}${exactCurrency.format(item.amount)}`;
-    node.querySelector(".item-notes").textContent = item.notes || "";
-    node.querySelector(".edit-button").addEventListener("click", () => editItem(item.id));
-    node.querySelector(".delete-button").addEventListener("click", () => deleteItem(item.id));
-    itemList.append(node);
+    itemList.append(createItemNode(item));
   });
 }
 
-function renderTimeline() {
-  timeline.innerHTML = "";
-  const sorted = [...items].sort((a, b) => a.day - b.day || a.name.localeCompare(b.name));
+function createItemNode(item) {
+  const node = template.content.firstElementChild.cloneNode(true);
+  const complete = isItemComplete(item.id);
+  node.classList.add(item.type);
+  node.classList.toggle("complete", complete);
+  node.querySelector(".item-check").checked = complete;
+  node.querySelector(".item-check").setAttribute("aria-label", `Mark ${item.name} as happened`);
+  node.querySelector(".item-check").addEventListener("change", (event) => setItemComplete(item.id, event.target.checked));
+  node.querySelector(".date-day").textContent = item.day;
+  node.querySelector(".item-name").textContent = item.name;
+  node.querySelector(".item-meta").textContent = `${getKindLabel(item.kind)} • ${item.category}${item.account ? ` • ${item.account}` : ""}`;
+  node.querySelector(".item-amount").textContent = `${item.type === "income" ? "+" : "-"}${exactCurrency.format(item.amount)}`;
+  node.querySelector(".item-notes").textContent = item.notes || "";
+  node.querySelector(".edit-button").addEventListener("click", () => editItem(item.id));
+  node.querySelector(".delete-button").addEventListener("click", () => deleteItem(item.id));
+  return node;
+}
 
-  if (!sorted.length) {
-    const empty = document.createElement("p");
-    empty.className = "empty-state";
-    empty.textContent = "Your due-date timeline will appear here.";
-    timeline.append(empty);
-    return;
-  }
+function getKindLabel(kind) {
+  return {
+    recurring: "Recurring item",
+    variable: "Recurring variable",
+    "one-time": "One time"
+  }[kind] || "Recurring item";
+}
 
-  sorted.forEach((item) => {
-    const entry = document.createElement("article");
-    const complete = isItemComplete(item.id);
-    entry.className = `timeline-entry ${item.type}${complete ? " complete" : ""}`;
-    entry.innerHTML = `
-      <input class="item-check" type="checkbox" aria-label="Mark ${escapeHtml(item.name)} as happened" ${complete ? "checked" : ""}>
-      <div class="timeline-main">
-        <span>Day ${item.day} • ${item.category}</span>
-        <strong>${escapeHtml(item.name)} · ${item.type === "income" ? "+" : "-"}${exactCurrency.format(item.amount)}</strong>
-      </div>
-    `;
-    entry.querySelector(".item-check").addEventListener("change", (event) => setItemComplete(item.id, event.target.checked));
-    timeline.append(entry);
+function renderGroups() {
+  groupedLists.innerHTML = "";
+  const groups = [
+    ["recurring", "Recurring items"],
+    ["variable", "Recurring variable"],
+    ["one-time", "One time"]
+  ];
+
+  groups.forEach(([kind, title]) => {
+    const groupItems = items
+      .filter((item) => normalizeItem(item).kind === kind)
+      .sort((a, b) => a.day - b.day || a.name.localeCompare(b.name));
+    const section = document.createElement("section");
+    section.className = "logging-group";
+    section.innerHTML = `<h3>${title}</h3>`;
+    const list = document.createElement("div");
+    list.className = "item-list";
+
+    if (groupItems.length) {
+      groupItems.forEach((item) => list.append(createItemNode(item)));
+    } else {
+      const empty = document.createElement("p");
+      empty.className = "empty-state";
+      empty.textContent = `No ${title.toLowerCase()} for this month.`;
+      list.append(empty);
+    }
+
+    section.append(list);
+    groupedLists.append(section);
   });
 }
 
@@ -411,7 +443,7 @@ function renderForecast() {
 function renderAll() {
   renderSummary();
   renderItems();
-  renderTimeline();
+  renderGroups();
   renderChart();
   renderForecast();
 }
@@ -426,6 +458,7 @@ function editItem(id) {
   cancelEditButton.hidden = false;
 
   form.elements.type.value = item.type;
+  form.elements.kind.value = normalizeItem(item).kind;
   updateCategories(item.type);
   form.elements.name.value = item.name;
   form.elements.amount.value = item.amount;
@@ -453,9 +486,14 @@ function resetForm() {
   editingId = null;
   form.reset();
   updateCategories("income");
-  formTitle.textContent = "Add income or expense";
-  submitButton.textContent = "Add recurring item";
+  updateFormMode();
   cancelEditButton.hidden = true;
+}
+
+function updateFormMode() {
+  const kind = new FormData(form).get("kind") || "recurring";
+  formTitle.textContent = `Add ${getKindLabel(kind).toLowerCase()}`;
+  submitButton.textContent = `Add ${getKindLabel(kind).toLowerCase()}`;
 }
 
 function escapeHtml(value) {
@@ -470,6 +508,7 @@ function escapeHtml(value) {
 
 form.addEventListener("change", (event) => {
   if (event.target.name === "type") updateCategories(event.target.value);
+  if (event.target.name === "kind") updateFormMode();
 });
 
 form.addEventListener("submit", (event) => {
@@ -477,6 +516,7 @@ form.addEventListener("submit", (event) => {
   const data = new FormData(form);
   const item = {
     id: editingId || createId(),
+    kind: data.get("kind") || "recurring",
     type: data.get("type"),
     name: String(data.get("name")).trim(),
     amount: Number(data.get("amount")),
@@ -626,6 +666,7 @@ syncButton.addEventListener("click", async () => {
 
 updateCategories();
 renderMonthOptions();
+updateFormMode();
 renderAll();
 updateSyncStatus();
 
